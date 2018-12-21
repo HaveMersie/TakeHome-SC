@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Fri Dec 21 12:34:32 2018
+
+@author: Douwe
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Nov  2 13:23:53 2018
 
 @author: Douwe
@@ -22,7 +29,10 @@ import scipy.sparse as sparse
 fig = plt.figure()
 ax = fig.add_subplot(111)
 
-N = 16
+
+
+"""Choose N 4 or bigger and even"""
+N = 64
 
 h = 1/N
 
@@ -67,6 +77,24 @@ blockN = np.block([[zN, I]])
 blockN1 = np.block([[zN[:, 2*(N+1):], -Ih, Th, zShort]]) 
     
 A = np.block([[A],[blockN1],[blockN]])/(h**2)
+
+
+
+
+"""make Permuation matrix for N even"""
+
+P = np.zeros(((N+1)**2, (N+1)**2))
+
+for i in range(1, (N+1)**2+1):
+    if i%2 == 0:
+
+        P[int(((N+1)**2 + 1+i)/2 -1), i-1] = 1
+    else:
+        P[int((i+1)/2 -1), i-1] = 1
+
+
+
+A_RB = np.dot(np.dot(P,A), P.T)
 
 #A_sparse = sparse.lil_matrix(A)
 
@@ -124,27 +152,31 @@ for i in range((N+1)**2):
     else:
         f_vec[i] = f_func[I]
 
+""" f to red BLACK ORDERING"""
+
+f_vec = np.dot(P, f_vec)
 
 u = np.zeros(((N+1)**2, 1))
  
 f_norm = np.linalg.norm(f_vec, ord = 2)
 
-TOL = (np.linalg.norm(f_vec - np.dot(A, u), ord = 2))/f_norm
+TOL = (np.linalg.norm(f_vec - np.dot(A_RB, u), ord = 2))/f_norm
 
 
 i = 0 
 
 TOL_vec = [TOL]
 
-#Gauss-Seidel
+"""Gauss-Seidel"""
+
 while TOL > 10**(-6) and i < 100*N:
     for j in range(0, (N+1)**2):
         
-        u[j] = (f_vec[j] - np.dot(A[j,:j], u[:j]) - 
-                np.dot(A[j, j+1:], u[j+1:]))/A[j,j]
+        u[j] = (f_vec[j] - np.dot(A_RB[j,:j], u[:j]) - 
+                np.dot(A_RB[j, j+1:], u[j+1:]))/A_RB[j,j]
 #        r_vec = f_vec - np.dot(A, u)
         
-    TOL = np.linalg.norm(f_vec - np.dot(A, u), ord = 2)/f_norm
+    TOL = np.linalg.norm(f_vec - np.dot(A_RB, u), ord = 2)/f_norm
     TOL_vec.append(TOL)
         
     i += 1
@@ -161,44 +193,20 @@ for i in reversed(range(1,6)):
 plot = 0*X + 0*Y
 u_mash =  0*X + 0*Y
 
-#for k in range((N+1)**2):
-#    Ix = k%(N+1)
-#    Iy = int(k/(N+1))
-#    
-#    u_ex_vec[k] = u_ex[Ix, Iy]
-#    plot[Ix, Iy] = u[k] - u_ex[Ix, Iy]
-#    u_mash[Ix, Iy] = u[k]
-    
-#M = np.linalg.norm((u_ex_vec - u), ord = inf)
-#print(np.linalg.norm((u_ex_vec), ord = inf))
-#print(np.linalg.norm((u), ord = inf))
+
 
 print('N = ' + str(N))
 print('TOL = '+ str(TOL))
 
 
-#print(np.shape(z))
+
 ax.plot(range(len(TOL_vec)), TOL_vec)
-#surf = ax.plot_surface(X, Y, plot, cmap=cm.coolwarm,
-#                       linewidth=0, antialiased=False)
+
 title = "Plot of scaled residual versus iteration numer, with N = " + str(N)
 ax.set_yscale('log')
 ax.set_title(title)
 ax.set_xlabel('iteration number')
 ax.set_ylabel('scaled residual')
-#ax.set_zlabel('z')
-#file = open(r'D:\Documenten\Studie\MASTER\Scientific Computing\Take home\GitHub\saveN64.txt', 'w')
-#
-#file.write('num iterations = '+ str(i) + '\n')
-#file.write('red of iterations' + '\n')
-#for i in reversed(range(1,6)):
-#    red = TOL_vec[-i]/TOL_vec[-i-1]
-#    file.write(str(red) + '\n')
-#
-#file.write('N = ' + str(N) + '\n')
-#file.write('TOL = '+ str(TOL) + '\n')
 
-
-file.close()
 
 print("--- %s seconds ---" % (time.time() - start_time))

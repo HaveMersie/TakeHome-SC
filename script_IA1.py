@@ -29,3 +29,4 @@ surf = ax.plot_surface(X, Y, Z1, cmap=cm.coolwarm,
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')
+ax.set_title('Plot of exact solution u_ex')

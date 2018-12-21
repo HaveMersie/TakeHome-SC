@@ -17,10 +17,12 @@ import pprint
 import scipy
 import scipy.linalg 
 import numpy.linalg as la
+import scipy.sparse as sparse
+
 fig = plt.figure()
 ax = fig.add_subplot(111)
 
-N = 16
+N = 64
 
 h = 1/N
 
@@ -66,6 +68,7 @@ blockN1 = np.block([[zN[:, 2*(N+1):], -Ih, Th, zShort]])
     
 A = np.block([[A],[blockN1],[blockN]])/(h**2)
 
+#A_sparse = sparse.lil_matrix(A)
 
 y = np.zeros(((N+1)**2, 1))
 u = np.zeros(((N+1)**2, 1))
@@ -135,11 +138,11 @@ TOL_vec = [TOL]
 
 #Gauss-Seidel
 while TOL > 10**(-6) and i < 100*N:
-    for j in range((N+1)**2):
+    for j in range(0, (N+1)**2):
         
         u[j] = (f_vec[j] - np.dot(A[j,:j], u[:j]) - 
-                np.dot(A[j, j+1:(N+1)**2], u[j+1:(N+1)**2]))/A[j,j]
-        r_vec = f_vec - np.dot(A, u)
+                np.dot(A[j, j+1:], u[j+1:]))/A[j,j]
+#        r_vec = f_vec - np.dot(A, u)
         
     TOL = np.linalg.norm(f_vec - np.dot(A, u), ord = 2)/f_norm
     TOL_vec.append(TOL)
@@ -184,16 +187,16 @@ ax.set_title(title)
 ax.set_xlabel('iteration number')
 ax.set_ylabel('scaled residual')
 #ax.set_zlabel('z')
-file = open(r'D:\Documenten\Studie\MASTER\Scientific Computing\Take home\GitHub\saveN64.txt', 'w')
-
-file.write('num iterations = '+ str(i) + '\n')
-file.write('red of iterations' + '\n')
-for i in reversed(range(1,6)):
-    red = TOL_vec[-i]/TOL_vec[-i-1]
-    file.write(str(red) + '\n')
-
-file.write('N = ' + str(N) + '\n')
-file.write('TOL = '+ str(TOL) + '\n')
+#file = open(r'D:\Documenten\Studie\MASTER\Scientific Computing\Take home\GitHub\saveN64.txt', 'w')
+#
+#file.write('num iterations = '+ str(i) + '\n')
+#file.write('red of iterations' + '\n')
+#for i in reversed(range(1,6)):
+#    red = TOL_vec[-i]/TOL_vec[-i-1]
+#    file.write(str(red) + '\n')
+#
+#file.write('N = ' + str(N) + '\n')
+#file.write('TOL = '+ str(TOL) + '\n')
 
 
 file.close()

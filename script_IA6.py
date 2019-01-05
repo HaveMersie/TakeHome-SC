@@ -1,26 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov  2 13:23:53 2018
+Created on Wed Jan  2 08:12:29 2019
 
 @author: Douwe
 """
+
 import time
 start_time = time.time()
 
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import numpy as np
-from copy import copy
-import pprint
-import scipy
-import scipy.linalg 
-import numpy.linalg as la
+import scipy.linalg as la
+import numpy.linalg as nla
 import scipy.sparse as sparse
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
+import scipy.sparse.linalg as splg
 
 N = 16
 
@@ -70,7 +63,7 @@ A = np.block([[A],[blockN1],[blockN]])/(h**2)
 
 #A_sparse = sparse.lil_matrix(A)
 
-y = np.zeros(((N+1)**2, 1))
+#y = np.zeros(((N+1)**2, 1))
 u = np.zeros(((N+1)**2, 1))
 u_ex_vec = np.zeros(((N+1)**2, 1))
 
@@ -95,7 +88,6 @@ for i in range((N+1)**2):
     if Ix == 0 or Iy == 0 or Ix == N or Iy == N:
         """Boundary"""
         f_vec[i] = g_func[Ix, Iy]
-
         
     elif I == (1,1) :
         f_vec[i] = f_func[I] + (g_func[1,0] + g_func[0,1])/(h**2)
@@ -129,22 +121,90 @@ u = np.zeros(((N+1)**2, 1))
  
 f_norm = np.linalg.norm(f_vec, ord = 2)
 
-TOL = (np.linalg.norm(f_vec - np.dot(A, u), ord = 2))/f_norm
+r_h = f_vec - np.dot(A, u)
+TOL = (np.linalg.norm(r_h, ord = 2))/f_norm
 
 
-i = 0 
+"""V-Cycle"""
+"""calculate M inverse and B of Gauss-Seidel"""
+#A_sparse = sparse.csc_matrix(A)
+
+t0 = time.time()
+
+M_inv = la.solve_triangular(A, np.identity((N+1)**2), 0, True)
+s = np.dot(M_inv, f_vec)
+B_GS = np.identity((N+1)**2) - np.dot(M_inv, A)
+
+t1 = time.time()
+print("--- %s seconds ---" % (t1- t0))
+
+
+#M = np.tril(A)
+#M_sparse = sparse.csc_matrix(M)
+#
+#t0 = time.time()
+#M_inv = splg.inv(M_sparse)
+
+#
+#t1 = time.time()
+#print("--- %s seconds ---" % (t1- t0))
+#M_inv = la.solve_triangular(A, np.identity((N+1)**2), 0, True)
+#print("--- %s seconds ---" % (time.time() - t1))
+
+"""defining grid operators"""
+I_h_2h_block = np.zeros((int(N/2) + 1, N+1))
+zeros = np.zeros((int(N/2) + 1, N+1))
+
+for i in range(int(N/2) + 1):
+    I_h_2h_block[i, i*2] = 1
+
+I_h_2h = I_h_2h_block
+    
+for i in range(2, int(N/2)+2):
+    I_h_2h = la.block_diag(I_h_2h, np.block([zeros, I_h_2h_block]))
+    
+    
+    
+
+zeros = np.zeros((N+1, (int(N/2) +1)**2))
+
+I_B1 = np.zeros((N+1, int(N/2) + 1))
+
+for i in range(N+1):
+    if i%2 == 0:
+        I_B1[i, int(i/2)] = 1
+    else:
+        I_B1[i, int((i-1)/2)] = 1/2
+        I_B1[i, int((i-1)/2) + 1] = 1/2
+
+I_2h_h = np.block([[I_B1, zeros[:, int(N/2)+1:]]])
+
+for i in range(int(N/2)):
+    I_2h_h = np.block([[I_2h_h],
+                       [zeros[:, :i*(int(N/2)+1)], I_B1/2, I_B1/2, zeros[:, (i+2)*(int(N/2)+1):]],
+                       [zeros[:, :(i+1)*(int(N/2)+1)], I_B1, zeros[:, (i+2)*(int(N/2)+1):]]])
+
 
 TOL_vec = [TOL]
 
 #Gauss-Seidel
+A_2h = np.dot(I_h_2h, np.dot(A, I_2h_h))
+
 while TOL > 10**(-6) and i < 100*N:
-    for j in range(0, (N+1)**2):
         
-        u[j] = (f_vec[j] - np.dot(A[j,:j], u[:j]) - 
-                np.dot(A[j, j+1:], u[j+1:]))/A[j,j]
-#        r_vec = f_vec - np.dot(A, u)
-        
-    TOL = np.linalg.norm(f_vec - np.dot(A, u), ord = 2)/f_norm
+    u = np.dot(B_GS, u) + s
+    
+    r_h = f_vec - np.dot(A, u)
+    r_2h = np.dot(I_h_2h, r_h)
+    e_2h = nla.solve(A_2h, r_2h)
+    e_h = np.dot(I_2h_h, e_2h)
+    u = u + e_h
+    u = np.dot(B_GS, u) + s
+    
+    r_h = f_vec - np.dot(A, u)
+    
+    
+    TOL = np.linalg.norm(r_h, ord = 2)/f_norm
     TOL_vec.append(TOL)
         
     i += 1
@@ -161,44 +221,24 @@ for i in reversed(range(1,6)):
 plot = 0*X + 0*Y
 u_mash =  0*X + 0*Y
 
-#for k in range((N+1)**2):
-#    Ix = k%(N+1)
-#    Iy = int(k/(N+1))
-#    
-#    u_ex_vec[k] = u_ex[Ix, Iy]
-#    plot[Ix, Iy] = u[k] - u_ex[Ix, Iy]
-#    u_mash[Ix, Iy] = u[k]
-    
-#M = np.linalg.norm((u_ex_vec - u), ord = inf)
-#print(np.linalg.norm((u_ex_vec), ord = inf))
-#print(np.linalg.norm((u), ord = inf))
 
 print('N = ' + str(N))
 print('TOL = '+ str(TOL))
 
 
 #print(np.shape(z))
+fig = plt.figure()
+ax = fig.add_subplot(111)
+
 ax.plot(range(len(TOL_vec)), TOL_vec)
 #surf = ax.plot_surface(X, Y, plot, cmap=cm.coolwarm,
 #                       linewidth=0, antialiased=False)
-title = "Plot of scaled residual versus iteration number, with N = " + str(N)
+title = "Plot of scaled residual versus iteration number \n of the two-grid V-cycle, with N = " + str(N)
 ax.set_yscale('log')
 ax.set_title(title)
 ax.set_xlabel('iteration number')
 ax.set_ylabel('scaled residual')
 #ax.set_zlabel('z')
-#file = open(r'D:\Documenten\Studie\MASTER\Scientific Computing\Take home\GitHub\saveN64.txt', 'w')
-#
-#file.write('num iterations = '+ str(i) + '\n')
-#file.write('red of iterations' + '\n')
-#for i in reversed(range(1,6)):
-#    red = TOL_vec[-i]/TOL_vec[-i-1]
-#    file.write(str(red) + '\n')
-#
-#file.write('N = ' + str(N) + '\n')
-#file.write('TOL = '+ str(TOL) + '\n')
 
-
-file.close()
 
 print("--- %s seconds ---" % (time.time() - start_time))

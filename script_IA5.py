@@ -32,7 +32,7 @@ ax = fig.add_subplot(111)
 
 
 """Choose N 4 or bigger and even"""
-N = 64
+N = 16
 
 h = 1/N
 
@@ -202,7 +202,7 @@ print('TOL = '+ str(TOL))
 
 ax.plot(range(len(TOL_vec)), TOL_vec)
 
-title = "Plot of scaled residual versus iteration numer, with N = " + str(N)
+title = "Plot of scaled residual versus iteration number, with N = " + str(N)
 ax.set_yscale('log')
 ax.set_title(title)
 ax.set_xlabel('iteration number')

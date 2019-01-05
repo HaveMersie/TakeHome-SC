@@ -22,7 +22,7 @@ import scipy.sparse as sparse
 fig = plt.figure()
 ax = fig.add_subplot(111)
 
-N = 16
+N = 64
 
 h = 1/N
 

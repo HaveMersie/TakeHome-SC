@@ -22,7 +22,7 @@ import scipy.sparse as sparse
 fig = plt.figure()
 ax = fig.add_subplot(111)
 
-N = 64
+N = 16
 
 h = 1/N
 
@@ -181,7 +181,7 @@ print('TOL = '+ str(TOL))
 ax.plot(range(len(TOL_vec)), TOL_vec)
 #surf = ax.plot_surface(X, Y, plot, cmap=cm.coolwarm,
 #                       linewidth=0, antialiased=False)
-title = "Plot of scaled residual versus iteration number, with N = " + str(N)
+title = "Plot of scaled residual versus iteration number \n of Gauss-Seidel with lexicografic ordering, with N = " + str(N)
 ax.set_yscale('log')
 ax.set_title(title)
 ax.set_xlabel('iteration number')
@@ -199,6 +199,6 @@ ax.set_ylabel('scaled residual')
 #file.write('TOL = '+ str(TOL) + '\n')
 
 
-file.close()
+#file.close()
 
 print("--- %s seconds ---" % (time.time() - start_time))

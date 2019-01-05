@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Sat Jan  5 16:49:16 2019
+
+@author: Douwe
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Wed Jan  2 08:12:29 2019
 
 @author: Douwe
@@ -15,7 +22,7 @@ import numpy.linalg as nla
 import scipy.sparse as sparse
 import scipy.sparse.linalg as splg
 
-N = 64
+N = 128
 
 h = 1/N
 
@@ -61,7 +68,8 @@ blockN1 = np.block([[zN[:, 2*(N+1):], -Ih, Th, zShort]])
     
 A = np.block([[A],[blockN1],[blockN]])/(h**2)
 
-#A_sparse = sparse.lil_matrix(A)
+
+
 
 #y = np.zeros(((N+1)**2, 1))
 u = np.zeros(((N+1)**2, 1))
@@ -117,39 +125,50 @@ for i in range((N+1)**2):
         f_vec[i] = f_func[I]
 
 
-u = np.zeros(((N+1)**2, 1))
- 
-f_norm = np.linalg.norm(f_vec, ord = 2)
 
-r_h = f_vec - np.dot(A, u)
-TOL = (np.linalg.norm(r_h, ord = 2))/f_norm
+
+
+"""make Permuation matrix for N even fine grid"""
+
+P_h = np.zeros(((N+1)**2, (N+1)**2))
+
+for i in range(1, (N+1)**2+1):
+    if i%2 == 0:
+
+        P_h[int(((N+1)**2 + 1+i)/2 -1), i-1] = 1
+    else:
+        P_h[int((i+1)/2 -1), i-1] = 1
+
+
+"""make Permuation matrix for N even coarse grid"""
+
+P_2h = np.zeros(((int(N/2)+1)**2, (int(N/2)+1)**2))
+
+for i in range(1, (int(N/2)+1)**2+1):
+    if i%2 == 0:
+
+        P_2h[int(((N/2+1)**2 + 1+i)/2 -1), i-1] = 1
+    else:
+        P_2h[int((i+1)/2 -1), i-1] = 1
+
+
+Arb = np.dot(np.dot(P_h,A), P_h.T)
+f_vec = np.dot(P_h, f_vec)
 
 
 """V-Cycle"""
 """calculate M inverse and B of Gauss-Seidel"""
-#A_sparse = sparse.csc_matrix(A)
 
 t0 = time.time()
 
-M_inv = la.solve_triangular(A, np.identity((N+1)**2), 0, True)
+M_inv = la.solve_triangular(Arb, np.identity((N+1)**2), 0, True)
 s = np.dot(M_inv, f_vec)
-B_GS = np.identity((N+1)**2) - np.dot(M_inv, A)
+B_GS = np.identity((N+1)**2) - np.dot(M_inv, Arb)
 
 t1 = time.time()
 print("--- %s seconds ---" % (t1- t0))
 
 
-#M = np.tril(A)
-#M_sparse = sparse.csc_matrix(M)
-#
-#t0 = time.time()
-#M_inv = splg.inv(M_sparse)
-
-#
-#t1 = time.time()
-#print("--- %s seconds ---" % (t1- t0))
-#M_inv = la.solve_triangular(A, np.identity((N+1)**2), 0, True)
-#print("--- %s seconds ---" % (time.time() - t1))
 
 """defining grid operators"""
 I_h_2h_block = np.zeros((int(N/2) + 1, N+1))
@@ -163,8 +182,15 @@ I_h_2h = I_h_2h_block
 for i in range(2, int(N/2)+2):
     I_h_2h = la.block_diag(I_h_2h, np.block([zeros, I_h_2h_block]))
     
-    
-    
+ 
+
+u = np.zeros(((N+1)**2, 1))
+ 
+f_norm = np.linalg.norm(f_vec, ord = 2)
+
+r_h = f_vec - np.dot(Arb, u)
+TOL = (np.linalg.norm(r_h, ord = 2))/f_norm
+  
 
 zeros = np.zeros((N+1, (int(N/2) +1)**2))
 
@@ -188,20 +214,23 @@ i = 0
 TOL_vec = [TOL]
 
 #Gauss-Seidel
-A_2h = np.dot(I_h_2h, np.dot(A, I_2h_h))
+I_h_2h = np.dot(np.dot(P_2h, I_h_2h), P_h.T)
+I_2h_h = np.dot(np.dot(P_h, I_2h_h), P_2h.T)
+
+Arb_2h = np.dot(np.dot(I_h_2h, Arb), I_2h_h)
 
 while TOL > 10**(-6) and i < 100*N:
         
     u = np.dot(B_GS, u) + s
     
-    r_h = f_vec - np.dot(A, u)
+    r_h = f_vec - np.dot(Arb, u)
     r_2h = np.dot(I_h_2h, r_h)
-    e_2h = nla.solve(A_2h, r_2h)
+    e_2h = nla.solve(Arb_2h, r_2h)
     e_h = np.dot(I_2h_h, e_2h)
     u = u + e_h
     u = np.dot(B_GS, u) + s
     
-    r_h = f_vec - np.dot(A, u)
+    r_h = f_vec - np.dot(Arb, u)
     
     
     TOL = np.linalg.norm(r_h, ord = 2)/f_norm

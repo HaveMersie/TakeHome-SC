@@ -15,7 +15,7 @@ import numpy.linalg as nla
 import scipy.sparse as sparse
 import scipy.sparse.linalg as splg
 
-N = 128
+N = 16
 
 h = 1/N
 

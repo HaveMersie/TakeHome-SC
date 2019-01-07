@@ -8,7 +8,7 @@ import numpy.linalg as nla
 import scipy.sparse as sparse
 import scipy.sparse.linalg as splg
 
-N = 16
+N = 32
 
 h = 1/N
 
@@ -122,7 +122,6 @@ TOL = (np.linalg.norm(r_h, ord = 2))/f_norm
 """calculate M inverse and B of Gauss-Seidel"""
 #A_sparse = sparse.csc_matrix(A)
 
-t0 = time.time()
 
 
 
@@ -204,26 +203,73 @@ for i in range(int(N/4)):
     I_4h_2h = np.block([[I_4h_2h],
                        [zeros[:, :i*(int(N/4)+1)], I_B1/2, I_B1/2, zeros[:, (i+2)*(int(N/4)+1):]],
                        [zeros[:, :(i+1)*(int(N/4)+1)], I_B1, zeros[:, (i+2)*(int(N/4)+1):]]])
+    
+"Red black permutation"
+
+
+"""make Permuation matrix for N even fine grid"""
+
+P_h = np.zeros(((N+1)**2, (N+1)**2))
+
+for i in range(1, (N+1)**2+1):
+    if i%2 == 0:
+
+        P_h[int(((N+1)**2 + 1+i)/2 -1), i-1] = 1
+    else:
+        P_h[int((i+1)/2 -1), i-1] = 1
+
+
+"""make Permuation matrix for N even coarser grid"""
+
+P_2h = np.zeros(((int(N/2)+1)**2, (int(N/2)+1)**2))
+
+for i in range(1, (int(N/2)+1)**2+1):
+    if i%2 == 0:
+
+        P_2h[int(((N/2+1)**2 + 1+i)/2 -1), i-1] = 1
+    else:
+        P_2h[int((i+1)/2 -1), i-1] = 1
+        
+"""make Permuation matrix for N even coarsest grid"""
+
+P_4h = np.zeros(((int(N/4)+1)**2, (int(N/4)+1)**2))
+
+for i in range(1, (int(N/4)+1)**2+1):
+    if i%2 == 0:
+
+        P_4h[int(((N/4+1)**2 + 1+i)/2 -1), i-1] = 1
+    else:
+        P_4h[int((i+1)/2 -1), i-1] = 1
+
+
+Arb = np.dot(np.dot(P_h,A), P_h.T)
+f_vec = np.dot(P_h, f_vec)
+
+"Defining new grid operators for red black ordering"
+I_h_2h = np.dot(np.dot(P_2h, I_h_2h), P_h.T)
+I_2h_h = np.dot(np.dot(P_h, I_2h_h), P_2h.T)
+I_2h_4h = np.dot(np.dot(P_4h, I_2h_4h), P_2h.T)
+I_4h_2h = np.dot(np.dot(P_2h, I_4h_2h), P_4h.T)
+
+Arb_2h = np.dot(np.dot(I_h_2h, Arb), I_2h_h)
+Arb_4h = np.dot(np.dot(I_2h_4h, Arb_2h), I_4h_2h)
 
 "computing (restricted) constants and matrices" 
 
 i = 0
 TOL_vec = [TOL]
 #Gauss-Seidel
-A_2h = np.dot(I_h_2h, np.dot(A, I_2h_h))
-A_4h = np.dot(I_2h_4h, np.dot(A_2h, I_4h_2h))
-M_inv = la.solve_triangular(A, np.identity((N+1)**2), 0, True)
-M_inv_2h = la.solve_triangular(A_2h, np.identity((int(N/2)+1)**2), 0, True)
+M_inv = la.solve_triangular(Arb, np.identity((N+1)**2), 0, True)
+M_inv_2h = la.solve_triangular(Arb_2h, np.identity((int(N/2)+1)**2), 0, True)
 s = np.dot(M_inv, f_vec)
 f_vec_2h = np.dot(I_h_2h, f_vec)
 
-B_GS = np.identity((N+1)**2) - np.dot(M_inv, A)
-B_GS_2h = np.identity((int(N/2)+1)**2) - np.dot(M_inv_2h, A_2h)
+B_GS = np.identity((N+1)**2) - np.dot(M_inv, Arb)
+B_GS_2h = np.identity((int(N/2)+1)**2) - np.dot(M_inv_2h, Arb_2h)
 
 v = np.zeros(((int(N/2)+1)**2, 1))
 
-t1 = time.time()
-print("--- %s seconds ---" % (t1- t0))
+t0 = time.time()
 
 "Start of cycle"
 
@@ -231,35 +277,25 @@ while TOL > 10**(-6) and i < 100*N:
 
     u = np.dot(B_GS, u) + s
     
-    r_h = f_vec - np.dot(A, u)
+    r_h = f_vec - np.dot(Arb, u)
     
     r_2h = np.dot(I_h_2h, r_h)
 
     v = np.dot(B_GS_2h, v) + np.dot(M_inv_2h, r_2h)
 #    
-    r_4h = np.dot(I_2h_4h, r_2h - np.dot(A_2h, v))
+    r_4h = np.dot(I_2h_4h, r_2h - np.dot(Arb_2h, v))
 #    
-    e_4h = nla.solve(A_4h, r_4h)
+    e_4h = nla.solve(Arb_4h, r_4h)
 #    
     v += np.dot(I_4h_2h, e_4h)
 #    
     v = np.dot(B_GS_2h, v) + np.dot(M_inv_2h, r_2h)
-    
-    v = np.dot(B_GS_2h, v) + np.dot(M_inv_2h, r_2h)
-    
-    r_4h = np.dot(I_2h_4h, r_2h - np.dot(A_2h, v))
-    
-    e_4h = nla.solve(A_4h, r_4h)
-    
-    v += np.dot(I_4h_2h, e_4h)
-#    
-    v = np.dot(B_GS_2h, v) + np.dot(M_inv_2h, r_2h)    
 #    
     u += np.dot(I_2h_h, v)
     
     u = np.dot(B_GS, u) + s
     
-    r_h = f_vec - np.dot(A, u)
+    r_h = f_vec - np.dot(Arb, u)
 
     
     
@@ -268,6 +304,8 @@ while TOL > 10**(-6) and i < 100*N:
         
     i += 1
     
+t1 = time.time()
+print("--- %s seconds ---" % (t1- t0))
 
 print('num iterations = '+ str(i))
 print('length TOL_vec: ' + str(np.shape(TOL_vec)))
@@ -292,7 +330,7 @@ ax = fig.add_subplot(111)
 ax.plot(range(len(TOL_vec)), TOL_vec)
 #surf = ax.plot_surface(X, Y, plot, cmap=cm.coolwarm,
 #                       linewidth=0, antialiased=False)
-title = "Plot of scaled residual versus iteration number \n of the three-grid W-cycle, with N = " + str(N)
+title = "Plot of scaled residual versus iteration number \n of the three-grid V-cycle, with N = " + str(N)
 ax.set_yscale('log')
 ax.set_title(title)
 ax.set_xlabel('iteration number')

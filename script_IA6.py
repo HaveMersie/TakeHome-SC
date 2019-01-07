@@ -162,7 +162,7 @@ I_h_2h = I_h_2h_block
     
 for i in range(2, int(N/2)+2):
     I_h_2h = la.block_diag(I_h_2h, np.block([zeros, I_h_2h_block]))
-    
+
     
     
 

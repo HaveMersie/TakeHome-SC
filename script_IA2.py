@@ -140,12 +140,12 @@ for i in range((N+1)**2):
     u_ex_vec[i] = u_ex[Ix, Iy]
     plot[Ix, Iy] = u[i] - u_ex[Ix, Iy]
     u_mash[Ix, Iy] = u[i]
-    
-M = np.linalg.norm((u_ex_vec - u), ord = inf)
-
-
-print("Max norm = " + str(M))
-
+#    
+#M = np.linalg.norm((u_ex_vec - u), ord = inf)
+#
+#
+#print("Max norm = " + str(M))
+#
 
 
 

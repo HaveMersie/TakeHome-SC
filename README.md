@@ -1,2 +1,2 @@
 # TakeHome-SC
-Doe die shit 
+Take Home exam, scientific computing TU Delft. 
